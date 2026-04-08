@@ -24,8 +24,10 @@ public class DataSupplierServiceImpl implements com.example.datachecking.domain.
     private final DataSupplierRepository dataSupplierRepository;
     private final JdbcTemplate jdbcTemplate;
     private final RestTemplate restTemplate;
+    private final RedisSupplierExecutor redisSupplierExecutor;
 
     private final Map<String, DataSupplierEntity> supplierCache = new ConcurrentHashMap<>();
+    private RpcSupplierExecutor rpcSupplierExecutor;
 
     @Override
     public Object supply(String supplierKey, Object params) {
@@ -39,7 +41,20 @@ public class DataSupplierServiceImpl implements com.example.datachecking.domain.
         return switch (supplierType) {
             case HTTP -> supplyHttp(supplier, params);
             case DB -> supplyDb(supplier, params);
+            case RPC -> supplyRpc(supplier, params);
+            case REDIS -> supplyRedis(supplier, params);
         };
+    }
+
+    private Object supplyRpc(DataSupplierEntity supplier, Object params) {
+        if (rpcSupplierExecutor == null) {
+            rpcSupplierExecutor = new RpcSupplierExecutor("data-checking", "zookeeper://localhost:2181");
+        }
+        return rpcSupplierExecutor.execute(supplier.getConfig(), (Map<String, Object>) params);
+    }
+
+    private Object supplyRedis(DataSupplierEntity supplier, Object params) {
+        return redisSupplierExecutor.execute(supplier.getConfig(), (Map<String, Object>) params);
     }
 
     private DataSupplierEntity getSupplier(String supplierKey) {
