@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:mysql://test-mysql.example.com:3306/data_checking_test?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: test_user
+    password: test_pass
+  kafka:
+    bootstrap-servers: test-kafka.example.com:9092
+  data:
+    redis:
+      host: test-redis.example.com
+      port: 6379
+      password: ""
+
+dubbo:
+  registry:
+    address: zookeeper://test-zk.example.com:2181
+
+logging:
+  level:
+    com.example.datachecking: INFO

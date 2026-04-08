@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: jdbc:mysql://prod-mysql.example.com:3306/data_checking_prod?useUnicode=true&characterEncoding=utf8&useSSL=true&serverTimezone=Asia/Shanghai
+    username: prod_user
+    password: prod_pass
+  kafka:
+    bootstrap-servers: prod-kafka1.example.com:9092,prod-kafka2.example.com:9092,prod-kafka3.example.com:9092
+  data:
+    redis:
+      host: prod-redis.example.com
+      port: 6379
+      password: ""
+
+dubbo:
+  registry:
+    address: zookeeper://prod-zk1.example.com:2181,prod-zk2.example.com:2181,prod-zk3.example.com:2181
+  provider:
+    timeout: 5000
+
+logging:
+  level:
+    root: WARN
+    com.example.datachecking: INFO
