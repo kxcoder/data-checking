@@ -1,0 +1,12 @@
+# IDE
+.idea/
+.settings/
+.classpath
+.project
+.factorypath
+
+# Build
+target/
+
+# OS
+.DS_Store
