@@ -1,14 +1,12 @@
-package com.example.datachecking.infrastructure.config;
+package com.example.datachecking.adapter.config;
 
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.example.datachecking.domain.model.DecisionResult;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
 @Slf4j
-@Component
 public class SentinelBlockHandler {
 
     public static DecisionResult handleBlockException(BlockException e) {

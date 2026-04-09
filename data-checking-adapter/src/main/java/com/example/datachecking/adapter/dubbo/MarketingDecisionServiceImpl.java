@@ -7,7 +7,7 @@ import com.example.datachecking.api.dto.MarketingDecisionResponse;
 import com.example.datachecking.application.dto.MarketingDecisionCommand;
 import com.example.datachecking.application.dto.MarketingDecisionResult;
 import com.example.datachecking.application.service.MarketingDecisionApplicationService;
-import com.example.datachecking.infrastructure.config.SentinelBlockHandler;
+import com.example.datachecking.adapter.config.SentinelBlockHandler;
 import lombok.RequiredArgsConstructor;
 import org.apache.dubbo.config.annotation.DubboService;
 

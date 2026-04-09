@@ -55,7 +55,7 @@
 
 **依赖规则**：
 - 允许依赖 domain
-- 允许依赖 application
+- 禁止依赖 application
 - 禁止依赖 api
 - 禁止依赖 adapter
 
@@ -74,10 +74,11 @@
 **依赖规则**：
 - 允许依赖 application
 - 允许依赖 api
-- 允许依赖 infrastructure
 - 禁止依赖 domain（通过 application 间接依赖）
+- 禁止依赖 infrastructure
 
 **包含内容**：
+- `adapter/config/` - 限流熔断处理（SentinelBlockHandler）
 - `adapter/dubbo/` - Dubbo RPC 服务实现
 - `adapter/web/` - REST 控制器
 
@@ -86,20 +87,19 @@
 ```
                           data-checking-start
                                  ↑
-  ┌─────────────────────────────┼─────────────────────────────┐
-  │                             ↑                             │
-  │                    adapter (adapter)                      │
-  │           依赖: application + api + infrastructure         │
-  │                             ↑                              │
-  │                    application (应用层)                    │
-  │                        依赖: domain                        │
-  │                             ↑                              │
-  │                 infrastructure (基础设施层)                 │
-  │              依赖: domain + application                     │
-  │                             ↑                              │
-  │            api (端口层)  ←→  domain (核心层)                │
-  │               依赖: 无              依赖: 无                │
-  └────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        adapter (适配器层)                            │
+│              依赖: application + api                                 │
+│                              ↑                                       │
+│                    application (应用层)                              │
+│                        依赖: domain                                  │
+│                              ↑                                       │
+│                 infrastructure (基础设施层)                          │
+│                     依赖: domain                                      │
+│                              ↑                                       │
+│            api (端口层)  ←→  domain (核心层)                         │
+│               依赖: 无              依赖: 无                          │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 依赖规则表
@@ -109,8 +109,8 @@
 | `domain` | 无 | 任何模块 | 核心领域，包含模型、枚举、仓储接口 |
 | `api` | 无 | 任何模块 | 端口接口定义，仅含服务接口 + DTO |
 | `application` | domain | api、infrastructure | 用例服务，包含 Command/Result DTO |
-| `infrastructure` | domain + application | api、adapter | 技术实现：MyBatis、Kafka、SpEL、Redis |
-| `adapter` | application + api + infrastructure | domain | 协议接入：Dubbo、Web，DTO 转换 |
+| `infrastructure` | domain | api、adapter、application | 技术实现：MyBatis、Kafka、SpEL、Redis |
+| `adapter` | application + api | domain、infrastructure | 协议接入：Dubbo、Web，DTO 转换 |
 
 ## 分层原则
 
@@ -159,10 +159,22 @@ A:
 
 A: API 层定义的是对外接口的 Request/Response，这些是外部协议相关的 DTO。Application 层的 Command/Result 应该是领域无关的，由 Adapter 负责在 API DTO 和 Application DTO 之间转换。
 
-### Q: 为什么 Infrastructure 可以依赖 Application？
+### Q: 基础设施层如何与应用层交互？
 
-A: Infrastructure 实现需要知道 Application 层定义的接口，但这是从内层依赖外层，不违反分层原则。实际上 Infrastructure 依赖 Application 主要是为了实现依赖注入（让 Application 层定义的 Bean 能被 Infrastructure 使用）。
+A: 通过依赖倒置（Dependency Inversion）：
+1. 在 `domain/service/` 定义接口（如 `MarketingDecisionExecutor`）
+2. 在 `infrastructure/` 实现接口（如 `MarketingDecisionEngine`）
+3. Application 层注入接口，Spring 自动绑定实现
+
+### Q: 为什么 Infrastructure 不能依赖 Application？
+
+A: Infrastructure 层是技术实现层，应该只依赖 domain 核心层。如果 Infrastructure 依赖 Application，会导致：
+- 循环依赖风险
+- 违反分层架构的内层优先原则
+- 基础设施实现与业务逻辑耦合
 
 ## 更新日志
 
 - 2026-04-09: 初始版本，定义五层架构及依赖规则
+- 2026-04-09: 修正 infrastructure 依赖规则，仅允许依赖 domain（禁止依赖 application）
+- 2026-04-09: 修正 adapter 依赖规则，禁止依赖 infrastructure
