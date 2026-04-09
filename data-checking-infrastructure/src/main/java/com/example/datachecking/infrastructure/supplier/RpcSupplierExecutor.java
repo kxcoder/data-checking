@@ -56,9 +56,9 @@ public class RpcSupplierExecutor {
             GenericService genericService = ref.get();
             Object[] args = buildRpcArgs(params, paramMapping);
             
-            Class<?>[] paramTypes = args.length > 0 
-                ? new Class[]{args[0].getClass()} 
-                : new Class[]{};
+            String[] paramTypes = args.length > 0 
+                ? new String[]{args[0].getClass().getName()} 
+                : new String[]{};
             
             return genericService.$invoke(methodName, paramTypes, args);
             

@@ -28,7 +28,34 @@ Spring Boot 3.5.7, Java 21, Maven 多模块。实时数据核对服务：消费 
 | `api` | 无 | 任何模块 | 端口接口定义，仅含服务接口 + DTO |
 | `application` | `domain` | `api`、`infrastructure` | 用例服务，包含 Command/Result DTO |
 | `infrastructure` | `domain` + `application` | `api`、`adapter` | 技术实现：MyBatis、Kafka、SpEL、Redis |
-| `adapter` | `api` + `application` + `infrastructure` | 无 | 协议接入：Dubbo、Web，DTO 转换 |
+| `adapter` | `api` + `application` + `infrastructure` | `domain` | 协议接入：Dubbo、Web，DTO 转换 |
+
+### DTO 分层规范
+
+- **api/dto/** - 对外接口使用的 Request/Response（由 adapter 转换为 application/dto）
+- **application/dto/** - 应用层内部使用的 Command/Result（领域无关）
+- Adapter 负责在 API DTO 和 Application DTO 之间进行转换
+
+### 领域服务接口规范
+
+Application 层需要使用基础设施时（如缓存、转换引擎），按以下步骤操作：
+
+1. 在 `domain/service/` 定义接口（如 `CacheService`、`TransformEngine`）
+2. 在 `infrastructure/` 实现接口（如 `FeatureLocalCache`、`SpelTransformEngine`）
+3. Application 层通过接口依赖注入（IoC），不直接依赖 infrastructure 实现
+
+### 分层检查清单
+
+在提交代码前，自查以下事项：
+
+- [ ] domain 模块是否没有依赖其他任何模块？
+- [ ] api 模块是否没有依赖其他任何模块？
+- [ ] application 模块是否只依赖 domain？
+- [ ] infrastructure 模块是否只依赖 domain 和 application？
+- [ ] adapter 模块是否没有直接依赖 domain？（间接通过 application 依赖）
+- [ ] Application 层需要基础设施时，是否在 domain 层定义了接口？
+- [ ] API 层的 DTO 是否只在 adapter 层使用，没有传入 application 层？
+- [ ] Adapter 是否负责将 API DTO 转换为 Application DTO？
 
 ### 模块结构
 

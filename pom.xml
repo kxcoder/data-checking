@@ -108,6 +108,13 @@
         <artifactId>sentinel-spring-boot-starter</artifactId>
         <version>1.8.8</version>
       </dependency>
+
+      <!-- Caffeine -->
+      <dependency>
+        <groupId>com.github.ben-manes.caffeine</groupId>
+        <artifactId>caffeine</artifactId>
+        <version>3.1.8</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 

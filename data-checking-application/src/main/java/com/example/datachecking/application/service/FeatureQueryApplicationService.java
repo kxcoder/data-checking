@@ -1,18 +1,13 @@
 package com.example.datachecking.application.service;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.example.datachecking.api.dto.FeatureQueryRequest;
-import com.example.datachecking.api.dto.FeatureQueryResponse;
+import com.example.datachecking.application.dto.FeatureQueryCommand;
+import com.example.datachecking.application.dto.FeatureQueryResult;
 import com.example.datachecking.domain.model.FeatureConfig;
-import com.example.datachecking.domain.model.SupplierType;
+import com.example.datachecking.domain.repository.FeatureConfigRepository;
+import com.example.datachecking.domain.service.CacheService;
 import com.example.datachecking.domain.service.DataSupplierService;
-import com.example.datachecking.infrastructure.cache.FeatureLocalCache;
-import com.example.datachecking.infrastructure.cache.FeatureRedisCache;
-import com.example.datachecking.infrastructure.engine.GroovyTransformEngine;
-import com.example.datachecking.infrastructure.engine.SpelTransformEngine;
-import com.example.datachecking.infrastructure.persistence.entity.FeatureConfigEntity;
-import com.example.datachecking.infrastructure.persistence.mapper.FeatureConfigMapper;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.example.datachecking.domain.service.TransformEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,24 +21,28 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FeatureQueryApplicationService {
 
-    private final FeatureConfigMapper featureConfigMapper;
+    private final FeatureConfigRepository featureConfigRepository;
     private final DataSupplierService dataSupplierService;
-    private final SpelTransformEngine spelTransformEngine;
-    private final GroovyTransformEngine groovyTransformEngine;
-    private final FeatureLocalCache localCache;
-    private final FeatureRedisCache redisCache;
+    private final TransformEngine spelTransformEngine;
+    private final TransformEngine groovyTransformEngine;
+    private final CacheService localCache;
+    private final CacheService redisCache;
 
-    public FeatureQueryResponse queryFeatures(FeatureQueryRequest request) {
+    public FeatureQueryResult queryFeatures(FeatureQueryCommand command) {
         try {
-            List<String> featureKeys = request.getFeatureKeys();
-            Long uid = request.getUid();
-            Map<String, Object> params = buildParams(uid, request.getParams());
+            List<String> featureKeys = command.getFeatureKeys();
+            Long uid = command.getUid();
+            Map<String, Object> params = buildParams(uid, command.getParams());
             
             Map<String, Object> features = new HashMap<>();
             Map<String, String> sources = new HashMap<>();
             Map<String, Long> timestamps = new HashMap<>();
             
-            Map<String, FeatureConfig> configMap = loadFeatureConfigs(featureKeys);
+            List<FeatureConfig> configs = featureConfigRepository.findByFeatureKeys(featureKeys);
+            Map<String, FeatureConfig> configMap = new HashMap<>();
+            for (FeatureConfig config : configs) {
+                configMap.put(config.getFeatureKey(), config);
+            }
             
             Map<String, List<String>> supplierToFeatures = groupBySupplier(configMap);
             
@@ -69,7 +68,7 @@ public class FeatureQueryApplicationService {
                 }
             }
             
-            return FeatureQueryResponse.builder()
+            return FeatureQueryResult.builder()
                     .features(features)
                     .sources(sources)
                     .timestamps(timestamps)
@@ -77,8 +76,8 @@ public class FeatureQueryApplicationService {
                     .build();
                     
         } catch (Exception e) {
-            log.error("Feature query failed: uid={}", request.getUid(), e);
-            return FeatureQueryResponse.builder()
+            log.error("Feature query failed: uid={}", command.getUid(), e);
+            return FeatureQueryResult.builder()
                     .success(false)
                     .errorMessage(e.getMessage())
                     .build();
@@ -94,20 +93,6 @@ public class FeatureQueryApplicationService {
             params.putAll(extraParams);
         }
         return params;
-    }
-
-    private Map<String, FeatureConfig> loadFeatureConfigs(List<String> featureKeys) {
-        List<FeatureConfigEntity> entities = featureConfigMapper.selectList(
-                new LambdaQueryWrapper<FeatureConfigEntity>()
-                        .in(FeatureConfigEntity::getFeatureKey, featureKeys)
-                        .eq(FeatureConfigEntity::getEnabled, true)
-        );
-        
-        Map<String, FeatureConfig> configMap = new HashMap<>();
-        for (FeatureConfigEntity entity : entities) {
-            configMap.put(entity.getFeatureKey(), toFeatureConfig(entity));
-        }
-        return configMap;
     }
 
     private Map<String, List<String>> groupBySupplier(Map<String, FeatureConfig> configMap) {
@@ -194,32 +179,18 @@ public class FeatureQueryApplicationService {
         }
         
         String script = config.getTransformScript();
-        return switch (transformType) {
-            case SPEL -> spelTransformEngine.transform(script, rawValue);
-            case GROOVY -> groovyTransformEngine.transform(script, rawValue);
-            default -> rawValue;
+        TransformEngine engine = switch (transformType) {
+            case SPEL -> spelTransformEngine;
+            case GROOVY -> groovyTransformEngine;
+            default -> null;
         };
+        
+        return engine != null ? engine.transform(script, rawValue) : rawValue;
     }
 
     private void cacheFeature(Long uid, String featureKey, Object value, int ttlSeconds) {
         String cacheKey = uid + ":" + featureKey;
         localCache.put(cacheKey, value, ttlSeconds);
         redisCache.put(cacheKey, value, ttlSeconds);
-    }
-
-    private FeatureConfig toFeatureConfig(FeatureConfigEntity entity) {
-        return FeatureConfig.builder()
-                .id(entity.getId())
-                .featureKey(entity.getFeatureKey())
-                .featureName(entity.getFeatureName())
-                .supplierType(SupplierType.valueOf(entity.getSupplierType()))
-                .supplierKey(entity.getSupplierKey())
-                .transformType(FeatureConfig.TransformType.valueOf(entity.getTransformType()))
-                .transformScript(entity.getTransformScript())
-                .extractPath(entity.getExtractPath())
-                .cacheTtl(entity.getCacheTtl())
-                .priority(entity.getPriority())
-                .enabled(entity.getEnabled())
-                .build();
     }
 }
