@@ -1,0 +1,45 @@
+schema: spec-driven
+
+# Project context
+context: |
+  Tech stack: Spring Boot 3.5.7, Java 21, Maven 多模块
+  Architecture: DDD 六边形分层架构
+  Domain: 实时数据核对服务 - 消费Kafka消息，通过SpEL/Groovy规则引擎核验数据，向Prometheus上报指标，失败数据持久化到MySQL
+  
+  Modules:
+    - data-checking-domain: 核心模型、仓储接口、领域服务接口
+    - data-checking-api: Dubbo RPC接口定义、跨服务DTO
+    - data-checking-application: 用例服务、Command/Result DTO
+    - data-checking-infrastructure: Kafka消费者、MyBatis-Plus Mapper、规则引擎、缓存
+    - data-checking-adapter: REST控制器、Dubbo RPC实现
+    - data-checking-start: Spring Boot入口
+  
+  Key technologies:
+    - Kafka: 批量消费、手动ack、规则变更广播topic
+    - Dubbo 3.3.5 + Zookeeper
+    - MyBatis-Plus 3.5.5 + MySQL 8
+    - SpEL + Groovy 规则引擎(预编译缓存)
+    - Sentinel: 100 QPS限流 + 50%熔断
+    - Redis: 三级缓存(L1 ConcurrentHashMap → L2 Redis → L3 MySQL)
+
+  Dependency rules (strict):
+    - domain: 无外部依赖
+    - api: 无外部依赖
+    - application: 仅依赖domain
+    - infrastructure: 仅依赖domain
+    - adapter: 仅依赖api + application
+
+  Config profiles: dev, test, pre, prod (via --spring.profiles.active)
+
+  Build command: mvn clean install
+  Run command: mvn spring-boot:run -pl data-checking-start -Dspring-boot.run.profiles=xxx
+
+# Per-artifact rules
+rules:
+  proposal:
+    - 遵循DDD分层架构设计
+    - 禁止跨层依赖
+  tasks:
+    - 遵守分层约束，infrastructure禁止依赖api/adapter/application
+    - 修改前运行mvn compile验证
+    - 使用mvn dependency:tree检查依赖违规
